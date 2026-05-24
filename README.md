@@ -57,12 +57,13 @@ cross-check --help
 
 | Tier | Models | Approx cost / run | When to use |
 |---|---|---|---|
-| `free` | 3 OpenRouter free models (DeepSeek V4 Flash + Nemotron 3 Super 120B + GPT-OSS 120B) | $0 | Quick sanity check |
-| `free-panel` | 3 alternative free models (Nemotron 3 Super + GPT-OSS 120B + GLM 4.5 Air) | $0 | Backup free option if `free` hits rate limits |
-| `premium` (default) | Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 | ~$0.15 | Important documents |
-| `full` | **5-model board panel** | ~$0.30-0.50 | Critical decisions, manuscript reviews |
+| `free` | 3-model OpenRouter free panel (Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air) | $0 | Quick sanity check; personal-use work |
+| `premium` (default) | Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 | ~$0.15 | Routine cross-check work |
+| `full` | **5-model board panel** | ~$0.30-0.50 | Critical decisions, manuscript reviews, research-pipeline panels |
 
 The full panel: Gemini 3.1 Pro, GPT-5.5, o3-pro, Qwen 3.7 Max, and Sonar Deep Research. The board was trimmed from 9 → 5 models on 2026-05-20 after OpenRouter's per-minute rate limit started 429'ing the 4th-5th models in a parallel race regardless of which models were chosen. The 5-model panel is the honest panel — every slot reliably responds.
+
+The `free` panel was consolidated from two near-identical free tiers on 2026-05-25 — same effective behavior, simpler API.
 
 ## Update to the latest version
 

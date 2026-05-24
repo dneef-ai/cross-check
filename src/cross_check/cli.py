@@ -6,7 +6,7 @@ Usage:
     python3 cross-check.py --file claims.txt
     python3 cross-check.py --review /path/to/review.md          (extract claims + verify)
     python3 cross-check.py --adversarial /path/to/review.md     (full-document adversarial review)
-    python3 cross-check.py --tier free|free-panel|premium|full   (model tier, default: premium)
+    python3 cross-check.py --tier free|premium|full   (model tier, default: premium)
 """
 
 import argparse
@@ -26,12 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 MODEL_TIERS = {
     "free": {
-        "description": "Lean free panel (3 OpenRouter free models: DeepSeek V4 Flash, Nemotron 3 Super 120B, GPT-OSS 120B)",
-        "models": ["openrouter_deepseek_v4_flash_free", "openrouter_nemotron_3_super_free",
-                   "openrouter_gpt_oss_120b_free"],
-    },
-    "free-panel": {
-        "description": "3-model free panel (Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air, all OpenRouter :free). Reduced from 5 → 3 on 2026-05-20: OpenRouter per-minute rate limit always 429s the 4th-5th models in a parallel race regardless of which models are picked (Qwen, DeepSeek, Hermes 405B, Llama 3.3 70B all hit 429 in slots 4-5 over Day 40-42 testing). The 3-model panel is the honest panel — every slot reliably responds. Hermes + Llama + others remain in code as explicit-call options.",
+        "description": "3-model free panel (Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air, all OpenRouter :free). Personal/non-Agteria use only (e.g. Meridian briefings). Reduced from 5 → 3 on 2026-05-20: OpenRouter per-minute rate limit always 429s the 4th-5th models in a parallel race regardless of which models are picked. Hermes + Llama + DeepSeek V4 Flash remain in code as explicit-call options.",
         "models": ["openrouter_nemotron_3_super_free", "openrouter_gpt_oss_120b_free",
                    "openrouter_glm_45_air_free"],
     },
@@ -539,10 +534,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             Model tiers:
-              free        Lean free panel (3 models): DeepSeek V4 Flash + Nemotron 3 Super 120B + GPT-OSS 120B (all :free)
-              free-panel  3-model free panel: Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air (all :free; reduced from 5 — OpenRouter rate-limits slots 4-5)
-              premium     Gemini 3.1 Pro (OR) + GPT-5.5 (OR) + Claude Opus 4.7 (OR)
-              full        5-model panel: Gemini 3.1 Pro + GPT-5.5 + o3-pro + Qwen 3.6 Max + Sonar Deep Research
+              free        3-model free panel: Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air (all OpenRouter :free). Use for personal/non-Agteria work (e.g. Meridian briefings).
+              premium     Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 (default). Use for routine cross-check work.
+              full        5-model panel: Gemini 3.1 Pro + GPT-5.5 + o3-pro + Qwen 3.7 Max + Sonar Deep Research. Default for research-pipeline panel reviews (Atlas, Argus, Auditor, Zero-Day, Alchemist, watchtower).
         """),
     )
     group = parser.add_mutually_exclusive_group(required=True)
@@ -550,7 +544,7 @@ def main():
     group.add_argument("--file", "-f", help="File with one claim per line")
     group.add_argument("--review", "-r", help="Review markdown file (auto-extracts claims)")
     group.add_argument("--adversarial", "-a", help="Full-document adversarial review")
-    parser.add_argument("--tier", "-t", choices=["free", "free-panel", "premium", "full"],
+    parser.add_argument("--tier", "-t", choices=["free", "premium", "full"],
                         default="premium", help="Model tier (default: premium)")
     parser.add_argument("--output", "-o", help="Output file for adversarial review")
     parser.add_argument("--system-prompt-file", help="Custom system prompt file (overrides built-in adversarial prompt)")
