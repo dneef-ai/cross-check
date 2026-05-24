@@ -1,12 +1,12 @@
 # cross-check
 
-A 9-model adversarial peer review panel for scientific claims and documents. Sends your claim or document to nine frontier AI models in parallel via OpenRouter, then surfaces where they agree and where they disagree.
+A multi-model adversarial peer review panel for scientific claims and documents. Sends your claim or document to several frontier AI models in parallel via OpenRouter, then surfaces where they agree and where they disagree.
 
 Useful for: stress-testing a hypothesis, sanity-checking a manuscript before submission, getting independent second opinions on a literature claim, or finding the weakest part of a research plan before you commit to it.
 
 ## What it does
 
-Send one claim, get nine independent verdicts. Each model gives reasoning, evidence (with PMIDs/DOIs when known), and additions. Disagreements are highlighted automatically.
+Send one claim, get independent verdicts from each model on the panel. Each model gives reasoning, evidence (with PMIDs/DOIs when known), and additions. Disagreements are highlighted automatically.
 
 You can also feed it a whole document for full adversarial review — it returns structured "factual errors / missing evidence / logic errors / what's right / verdict" per model.
 
@@ -57,12 +57,12 @@ cross-check --help
 
 | Tier | Models | Approx cost / run | When to use |
 |---|---|---|---|
-| `free` | Gemini Flash + Llama 70B + OpenRouter free | $0 | Quick sanity check |
-| `standard` | Gemini 3.1 Pro + GPT-5.5 + Llama 70B | ~$0.05 | Routine review |
-| `premium` | Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.6 | ~$0.15 | Important documents |
-| `full` | **9-model board panel** | ~$0.40-0.60 | Critical decisions, manuscript reviews |
+| `free` | 3 OpenRouter free models (DeepSeek V4 Flash + Nemotron 3 Super 120B + GPT-OSS 120B) | $0 | Quick sanity check |
+| `free-panel` | 3 alternative free models (Nemotron 3 Super + GPT-OSS 120B + GLM 4.5 Air) | $0 | Backup free option if `free` hits rate limits |
+| `premium` (default) | Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 | ~$0.15 | Important documents |
+| `full` | **5-model board panel** | ~$0.30-0.50 | Critical decisions, manuscript reviews |
 
-The full panel: Gemini 3.1 Pro, GPT-5.5, o3-pro, Grok 4.20 Multi-Agent, DeepSeek V4 Pro, Kimi K2.6, Qwen 3.6 Max, Claude Opus 4.6, and Sonar Deep Research.
+The full panel: Gemini 3.1 Pro, GPT-5.5, o3-pro, Qwen 3.7 Max, and Sonar Deep Research. The board was trimmed from 9 → 5 models on 2026-05-20 after OpenRouter's per-minute rate limit started 429'ing the 4th-5th models in a parallel race regardless of which models were chosen. The 5-model panel is the honest panel — every slot reliably responds.
 
 ## Update to the latest version
 

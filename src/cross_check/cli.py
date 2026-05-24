@@ -6,7 +6,7 @@ Usage:
     python3 cross-check.py --file claims.txt
     python3 cross-check.py --review /path/to/review.md          (extract claims + verify)
     python3 cross-check.py --adversarial /path/to/review.md     (full-document adversarial review)
-    python3 cross-check.py --tier free|standard|premium          (model tier, default: standard)
+    python3 cross-check.py --tier free|free-panel|premium|full   (model tier, default: premium)
 """
 
 import argparse
@@ -26,22 +26,23 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 MODEL_TIERS = {
     "free": {
-        "description": "Free/cheap models (Gemini Flash, Llama 70B, OpenRouter free)",
-        "models": ["gemini_flash", "groq_llama", "openrouter_free"],
+        "description": "Lean free panel (3 OpenRouter free models: DeepSeek V4 Flash, Nemotron 3 Super 120B, GPT-OSS 120B)",
+        "models": ["openrouter_deepseek_v4_flash_free", "openrouter_nemotron_3_super_free",
+                   "openrouter_gpt_oss_120b_free"],
     },
-    "standard": {
-        "description": "Best models from 3 families (Gemini 3.1 Pro, GPT-5.5, Groq/Llama)",
-        "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "groq_llama"],
+    "free-panel": {
+        "description": "3-model free panel (Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air, all OpenRouter :free). Reduced from 5 → 3 on 2026-05-20: OpenRouter per-minute rate limit always 429s the 4th-5th models in a parallel race regardless of which models are picked (Qwen, DeepSeek, Hermes 405B, Llama 3.3 70B all hit 429 in slots 4-5 over Day 40-42 testing). The 3-model panel is the honest panel — every slot reliably responds. Hermes + Llama + others remain in code as explicit-call options.",
+        "models": ["openrouter_nemotron_3_super_free", "openrouter_gpt_oss_120b_free",
+                   "openrouter_glm_45_air_free"],
     },
     "premium": {
-        "description": "Top 3 frontier (Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.6)",
+        "description": "Top 3 frontier (Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7)",
         "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_claude_opus"],
     },
     "full": {
-        "description": "9-model board panel (Gemini 3.1 Pro, GPT-5.5, o3-pro, Grok 4.20 MA, DeepSeek V4, Kimi K2.6, Qwen 3.6 Max, Claude Opus 4.6, Sonar Deep Research)",
+        "description": "5-model board panel (Gemini 3.1 Pro, GPT-5.5, o3-pro, Qwen 3.7 Max, Sonar Deep Research)",
         "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_o3_pro",
-                   "openrouter_grok_420_ma", "openrouter_deepseek_v4", "openrouter_kimi_26",
-                   "openrouter_qwen_36_max", "openrouter_claude_opus", "openrouter_sonar_deep_research"],
+                   "openrouter_qwen_37_max", "openrouter_sonar_deep_research"],
     },
 }
 
@@ -49,24 +50,24 @@ MODEL_TIERS = {
 # Prompts
 # ---------------------------------------------------------------------------
 
-SYSTEM_PROMPT = """You are a senior scientific reviewer with deep expertise in the subject matter most relevant to each claim. Evaluate the following claim with the rigor of formal peer review.
+SYSTEM_PROMPT = """You are a veterinary pharmacology and microbiology expert reviewing claims about animal health therapeutics, pathogen biology, and drug discovery pipeline outputs.
 
 For each claim, respond with EXACTLY this format:
 
 VERDICT: AGREE / DISAGREE / PARTIALLY AGREE / UNCERTAIN
 CONFIDENCE: HIGH / MEDIUM / LOW
 REASONING: 1-3 sentences explaining your assessment.
-EVIDENCE: Cite specific papers, facts, or mechanisms that support or contradict the claim. Include PMIDs or DOIs if you know them.
+EVIDENCE: Cite specific papers, facts, or mechanisms that support or contradict the claim. Include PMIDs if you know them.
 ADDITIONS: Anything important the claim misses or gets wrong. Say "None" if the claim is complete."""
 
-EXTRACT_PROMPT = """You are reviewing a scientific or technical document. Extract the 15-20 most important verifiable factual claims. Prioritize:
+EXTRACT_PROMPT = """You are reviewing a scientific document about animal health drug discovery. Extract the 15-20 most important verifiable scientific claims. Prioritize:
 
-1. MECHANISTIC CLAIMS that drive the document's conclusions (how something works)
-2. EFFICACY/PERFORMANCE CLAIMS with specific numbers (e.g., "47% improvement over baseline")
-3. ABSENCE/NEGATIVE CLAIMS (e.g., "X has never been demonstrated in Y system")
-4. COMPARATIVE CLAIMS (e.g., "X outperforms Y by Z%")
-5. COMMERCIAL/REGULATORY CLAIMS (patents, approvals, exclusivity)
-6. CLAIMS THAT DRIVE RECOMMENDATIONS (assertions a decision rests on)
+1. MECHANISTIC CLAIMS that drive the document's conclusions (e.g., "Hla knockout eliminates lethality in murine mastitis")
+2. EFFICACY CLAIMS with specific numbers (e.g., "DPC3147 achieved 47% cure rate vs 50% for antibiotics")
+3. ABSENCE/NEGATIVE CLAIMS (e.g., "No isogenic delta-lukMF' bovine intramammary challenge has ever been published")
+4. COMPARATIVE CLAIMS (e.g., "Bovine milk has 2000-5000x less lysozyme than human milk")
+5. COMMERCIAL/REGULATORY CLAIMS (e.g., "Core patent WO2005034970A1 has expired across all jurisdictions")
+6. CLAIMS THAT DRIVE RECOMMENDATIONS (e.g., "Sortase A has no mammalian homolog")
 
 Each claim must be a single self-contained sentence that can be verified independently.
 Do NOT extract opinions, recommendations, or subjective assessments — only verifiable factual claims.
@@ -76,14 +77,14 @@ Output a JSON array of strings. Example:
 
 Output ONLY the JSON array. No markdown formatting. No explanation."""
 
-ADVERSARIAL_PROMPT = """You are a senior scientist with 15+ years of experience in the field most relevant to this document, and a low tolerance for hand-waving.
+ADVERSARIAL_PROMPT = """You are a senior R&D scientist at a major animal health company (Zoetis, Elanco, or equivalent). You have 15+ years of experience in veterinary drug development, deep expertise in the disease area covered by this review, and a low tolerance for hand-waving.
 
-You are reading a scientific or technical review. Your job is to find issues that would CHANGE A DECISION — not to suggest hedging language or tone adjustments.
+You are reading an external review of your company's AI-generated drug discovery pipeline output. Your job is to find issues that would CHANGE A DECISION — not to suggest hedging language or tone adjustments.
 
 IMPORTANT RULES:
 - Do NOT flag confidence language or tone. "Highly likely" vs "almost certainly" is not a finding. If the underlying evidence supports the conclusion, the conclusion stands regardless of how it's worded.
 - Do NOT suggest adding caveats, hedges, or qualifications unless the underlying claim is actually wrong.
-- Do NOT flag the absence of information that would not change any recommendation.
+- Do NOT flag the absence of information that would not change any recommendation (e.g., "should mention milk residue testing" is only relevant if residue is a plausible concern for the specific intervention).
 - EVERY finding must pass the "so what?" test: state explicitly what decision or recommendation would change if this finding is correct.
 
 Structure your response as:
@@ -91,14 +92,14 @@ Structure your response as:
 ## FACTUAL ERRORS (Would change a recommendation)
 [Claims that are demonstrably wrong. For each: quote the claim, state what is actually true, cite evidence, and state which recommendation would change. If you cannot name a specific recommendation that would change, do not include the finding.]
 
-## CRITICAL MISSING EVIDENCE (Would change the conclusion)
-[Information the review does not have that could flip the analysis. State what the missing evidence is, where it might be found, and what the expected impact would be.]
+## CRITICAL MISSING EVIDENCE (Would add or kill a target)
+[Information the review does not have that could flip a target from KEEP to KILL or vice versa. For each: state what the missing evidence is, where it might be found, and what the expected impact would be.]
 
 ## LOGIC ERRORS (Conclusion does not follow from evidence)
 [Places where the review's reasoning is formally invalid — not just "could be more nuanced" but where the conclusion genuinely does not follow from the premises. State the premises, the conclusion, and what's wrong with the inference.]
 
 ## WHAT THE REVIEW GETS RIGHT
-[The 3-5 strongest, most defensible claims.]
+[The 3-5 strongest, most defensible claims. These are claims you would be comfortable presenting to your board without additional verification.]
 
 ## VERDICT
 [One sentence: Is this review reliable enough to act on? If not, what single thing needs to be fixed first?]"""
@@ -200,8 +201,8 @@ def query_openrouter(text, api_key, model="openrouter/free", system_prompt=None,
         "Content-Type": "application/json",
         "Authorization": f"Bearer {api_key}",
         "User-Agent": "cross-check/2.0",
-        "HTTP-Referer": "https://github.com/dneef-ai/cross-check",
-        "X-Title": "cross-check",
+        "HTTP-Referer": "https://github.com/agteria/cross-check",
+        "X-Title": "Agteria Cross-Check",
     })
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
@@ -297,7 +298,7 @@ def get_model_runner(model_id, keys):
     elif model_id == "openrouter_claude_opus":
         if not keys["openrouter"]:
             return None
-        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "anthropic/claude-opus-4.6", sp, mt)
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "anthropic/claude-opus-4.7", sp, mt)
     elif model_id == "openrouter_deepseek_v4":
         if not keys["openrouter"]:
             return None
@@ -310,14 +311,42 @@ def get_model_runner(model_id, keys):
         if not keys["openrouter"]:
             return None
         return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "openai/o3-pro", sp, mt)
-    elif model_id == "openrouter_qwen_36_max":
+    elif model_id == "openrouter_qwen_37_max":
         if not keys["openrouter"]:
             return None
-        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "qwen/qwen3.6-max-preview", sp, mt)
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "qwen/qwen3.7-max", sp, mt)
     elif model_id == "openrouter_sonar_deep_research":
         if not keys["openrouter"]:
             return None
         return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "perplexity/sonar-deep-research", sp, mt)
+    elif model_id == "openrouter_deepseek_v4_flash_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "deepseek/deepseek-v4-flash:free", sp, mt)
+    elif model_id == "openrouter_nemotron_3_super_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "nvidia/nemotron-3-super-120b-a12b:free", sp, mt)
+    elif model_id == "openrouter_gpt_oss_120b_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "openai/gpt-oss-120b:free", sp, mt)
+    elif model_id == "openrouter_qwen3_next_80b_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "qwen/qwen3-next-80b-a3b-instruct:free", sp, mt)
+    elif model_id == "openrouter_glm_45_air_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "z-ai/glm-4.5-air:free", sp, mt)
+    elif model_id == "openrouter_hermes3_405b_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "nousresearch/hermes-3-llama-3.1-405b:free", sp, mt)
+    elif model_id == "openrouter_llama_33_70b_free":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "meta-llama/llama-3.3-70b-instruct:free", sp, mt)
     elif model_id == "edison":
         if not keys["edison"]:
             return None
@@ -330,10 +359,10 @@ def get_model_runner(model_id, keys):
 # Claim extraction
 # ---------------------------------------------------------------------------
 
-def extract_claims(review_text, keys, tier="standard"):
+def extract_claims(review_text, keys, tier="premium"):
     """Extract key claims from a review document using the best available model."""
     # Use Gemini Pro via OpenRouter for standard/premium, Gemini Flash for free
-    if tier in ("standard", "premium", "full") and keys["openrouter"]:
+    if tier in ("premium", "full") and keys["openrouter"]:
         print("Extracting claims with Gemini 3.1 Pro Preview...")
         _, result = query_openrouter(
             f"{EXTRACT_PROMPT}\n\n---\n\n{review_text}",
@@ -510,10 +539,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=textwrap.dedent("""\
             Model tiers:
-              free      Gemini Flash + Llama 70B (Groq) + OpenRouter free
-              standard  Gemini 3.1 Pro (OR) + GPT-5.5 (OR) + Llama 70B (Groq)
-              premium   Gemini 3.1 Pro (OR) + GPT-5.5 (OR) + Claude Opus 4.6 (OR)
-              full      9-model panel: Gemini 3.1 Pro + GPT-5.5 + o3-pro + Grok 4.20 MA + DeepSeek V4 + Kimi K2.6 + Qwen 3.6 Max + Opus 4.6 + Sonar Deep Research
+              free        Lean free panel (3 models): DeepSeek V4 Flash + Nemotron 3 Super 120B + GPT-OSS 120B (all :free)
+              free-panel  3-model free panel: Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air (all :free; reduced from 5 — OpenRouter rate-limits slots 4-5)
+              premium     Gemini 3.1 Pro (OR) + GPT-5.5 (OR) + Claude Opus 4.7 (OR)
+              full        5-model panel: Gemini 3.1 Pro + GPT-5.5 + o3-pro + Qwen 3.6 Max + Sonar Deep Research
         """),
     )
     group = parser.add_mutually_exclusive_group(required=True)
@@ -521,8 +550,8 @@ def main():
     group.add_argument("--file", "-f", help="File with one claim per line")
     group.add_argument("--review", "-r", help="Review markdown file (auto-extracts claims)")
     group.add_argument("--adversarial", "-a", help="Full-document adversarial review")
-    parser.add_argument("--tier", "-t", choices=["free", "standard", "premium", "full"],
-                        default="standard", help="Model tier (default: standard)")
+    parser.add_argument("--tier", "-t", choices=["free", "free-panel", "premium", "full"],
+                        default="premium", help="Model tier (default: premium)")
     parser.add_argument("--output", "-o", help="Output file for adversarial review")
     parser.add_argument("--system-prompt-file", help="Custom system prompt file (overrides built-in adversarial prompt)")
     args = parser.parse_args()
