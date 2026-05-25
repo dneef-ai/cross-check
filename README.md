@@ -61,7 +61,9 @@ cross-check --help
 | `premium` (default) | Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 | ~$0.15 | Routine cross-check work |
 | `full` | **5-model board panel** | ~$0.30-0.50 | Critical decisions, manuscript reviews, research-pipeline panels |
 
-The full panel: Gemini 3.1 Pro, GPT-5.5, o3-pro, Qwen 3.7 Max, and Sonar Deep Research. The board was trimmed from 9 → 5 models on 2026-05-20 after OpenRouter's per-minute rate limit started 429'ing the 4th-5th models in a parallel race regardless of which models were chosen. The 5-model panel is the honest panel — every slot reliably responds.
+The full panel: Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7, Qwen 3.7 Max, and Sonar Deep Research. The board was trimmed from 9 → 5 models on 2026-05-20 after OpenRouter's per-minute rate limit started 429'ing the 4th-5th models in a parallel race regardless of which models were chosen. The 5-model panel is the honest panel — every slot reliably responds.
+
+**2026-05-26 panel swap:** o3-pro out, Opus 4.7 in. Two independent audits documented o3-pro's Mode-B citation laundering (real PMIDs resolving to unrelated papers); an 18-model benchmark scored Opus 4.7 at 23/30 vs o3-pro at 19/30 for less than half the cost.
 
 The `free` panel was consolidated from two near-identical free tiers on 2026-05-25 — same effective behavior, simpler API.
 
