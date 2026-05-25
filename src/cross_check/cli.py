@@ -35,8 +35,8 @@ MODEL_TIERS = {
         "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_claude_opus"],
     },
     "full": {
-        "description": "5-model board panel (Gemini 3.1 Pro, GPT-5.5, o3-pro, Qwen 3.7 Max, Sonar Deep Research)",
-        "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_o3_pro",
+        "description": "5-model board panel (Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7, Qwen 3.7 Max, Sonar Deep Research)",
+        "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_claude_opus",
                    "openrouter_qwen_37_max", "openrouter_sonar_deep_research"],
     },
 }
@@ -286,26 +286,14 @@ def get_model_runner(model_id, keys):
         if not keys["openrouter"]:
             return None
         return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "openai/gpt-5.5", sp, mt)
-    elif model_id == "openrouter_grok_420_ma":
-        if not keys["openrouter"]:
-            return None
-        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "x-ai/grok-4.20-multi-agent", sp, mt)
     elif model_id == "openrouter_claude_opus":
         if not keys["openrouter"]:
             return None
         return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "anthropic/claude-opus-4.7", sp, mt)
-    elif model_id == "openrouter_deepseek_v4":
-        if not keys["openrouter"]:
-            return None
-        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "deepseek/deepseek-v4-pro", sp, mt)
     elif model_id == "openrouter_kimi_26":
         if not keys["openrouter"]:
             return None
         return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "moonshotai/kimi-k2.6", sp, mt)
-    elif model_id == "openrouter_o3_pro":
-        if not keys["openrouter"]:
-            return None
-        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "openai/o3-pro", sp, mt)
     elif model_id == "openrouter_qwen_37_max":
         if not keys["openrouter"]:
             return None
@@ -491,6 +479,12 @@ def adversarial_review(review_path, runners, output_path=None, system_prompt=Non
     print(f"{'='*76}\n")
 
     results = {}
+    # max_tokens=24000 for adversarial mode: models like GPT-5.5 and Gemini consume
+    # 3000-6000 tokens on internal reasoning before producing content. A 4000 cap
+    # truncates them to empty/CoT-fallback responses on multi-item benchmarks or
+    # long documents. 12000 still left Gemini truncating at item 5/12; 24000 gives
+    # enough headroom for the most reasoning-heavy models without changing actual
+    # cost (billing is per token produced, not per token allowed).
     with ThreadPoolExecutor(max_workers=min(len(runners), 6)) as executor:
         futures = {}
         for runner in runners:
@@ -498,7 +492,7 @@ def adversarial_review(review_path, runners, output_path=None, system_prompt=Non
                 runner,
                 f"REVIEW DOCUMENT TO ANALYZE:\n\n{review_text}",
                 prompt,
-                4000,
+                24000,
             )] = True
 
         for future in as_completed(futures):
@@ -536,7 +530,7 @@ def main():
             Model tiers:
               free        3-model free panel: Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air (all OpenRouter :free). Use for personal/non-Agteria work (e.g. Meridian briefings).
               premium     Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 (default). Use for routine cross-check work.
-              full        5-model panel: Gemini 3.1 Pro + GPT-5.5 + o3-pro + Qwen 3.7 Max + Sonar Deep Research. Default for research-pipeline panel reviews (Atlas, Argus, Auditor, Zero-Day, Alchemist, watchtower).
+              full        5-model panel: Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 + Qwen 3.7 Max + Sonar Deep Research. Default for research-pipeline panel reviews (Atlas, Argus, Auditor, Zero-Day, Alchemist, watchtower). 2026-05-26 swap: o3-pro out (Mode-B citation laundering across 2 audits, $0.25/run); Opus 4.7 in (top benchmark performer 23/30, $0.115/run).
         """),
     )
     group = parser.add_mutually_exclusive_group(required=True)
