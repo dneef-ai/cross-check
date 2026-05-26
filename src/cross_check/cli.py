@@ -35,9 +35,10 @@ MODEL_TIERS = {
         "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_claude_opus"],
     },
     "full": {
-        "description": "5-model board panel (Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7, Qwen 3.7 Max, Sonar Deep Research)",
-        "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_claude_opus",
-                   "openrouter_qwen_37_max", "openrouter_sonar_deep_research"],
+        "description": "7-model board panel (Gemini 3.1 Pro, GPT-5.5, Qwen 3.7 Max, Sonar Deep Research, GLM 5.1, MiMo V2.5 Pro, Ring 2.6 1T). 2026-05-26 swap: Claude Opus 4.7 out (truncation issue — stops mid-Item-7 with finish_reason=stop on 2/3 runs; under investigation); GLM 5.1 + MiMo V2.5 Pro + Ring 2.6 1T in (validated at mean ≥22, min ≥20 across N=3 benchmark, new lab voices: Z-AI, Xiaomi, Inclusion AI).",
+        "models": ["openrouter_gemini_31_pro", "openrouter_gpt55", "openrouter_qwen_37_max",
+                   "openrouter_sonar_deep_research", "openrouter_glm_51",
+                   "openrouter_mimo_25_pro", "openrouter_ring_26_1t"],
     },
 }
 
@@ -302,6 +303,18 @@ def get_model_runner(model_id, keys):
         if not keys["openrouter"]:
             return None
         return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "perplexity/sonar-deep-research", sp, mt)
+    elif model_id == "openrouter_glm_51":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "z-ai/glm-5.1", sp, mt)
+    elif model_id == "openrouter_mimo_25_pro":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "xiaomi/mimo-v2.5-pro", sp, mt)
+    elif model_id == "openrouter_ring_26_1t":
+        if not keys["openrouter"]:
+            return None
+        return lambda text, sp=None, mt=4000: query_openrouter(text, keys["openrouter"], "inclusionai/ring-2.6-1t", sp, mt)
     elif model_id == "openrouter_deepseek_v4_flash_free":
         if not keys["openrouter"]:
             return None
@@ -530,7 +543,7 @@ def main():
             Model tiers:
               free        3-model free panel: Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air (all OpenRouter :free). Use for personal/non-Agteria work (e.g. Meridian briefings).
               premium     Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 (default). Use for routine cross-check work.
-              full        5-model panel: Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 + Qwen 3.7 Max + Sonar Deep Research. Default for research-pipeline panel reviews (Atlas, Argus, Auditor, Zero-Day, Alchemist, watchtower). 2026-05-26 swap: o3-pro out (Mode-B citation laundering across 2 audits, $0.25/run); Opus 4.7 in (top benchmark performer 23/30, $0.115/run).
+              full        7-model panel: Gemini 3.1 Pro + GPT-5.5 + Qwen 3.7 Max + Sonar Deep Research + GLM 5.1 + MiMo V2.5 Pro + Ring 2.6 1T. Default for research-pipeline panel reviews (Atlas, Argus, Auditor, Zero-Day, Alchemist, watchtower). 2026-05-26 (eve): Claude Opus 4.7 out (truncation issue — stops mid-Item-7 with finish_reason=stop on 2/3 N=3 runs, under investigation); GLM 5.1, MiMo V2.5 Pro, Ring 2.6 1T in (validated at mean ≥22, min ≥20 across N=3 benchmark; adds Z-AI, Xiaomi, Inclusion AI as new lab voices).
         """),
     )
     group = parser.add_mutually_exclusive_group(required=True)
