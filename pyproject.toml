@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cross-check"
 version = "1.0.0"
-description = "9-model adversarial peer review panel for scientific claims and documents, via OpenRouter"
+description = "Multi-model adversarial peer review panel for scientific claims and documents, via OpenRouter"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []

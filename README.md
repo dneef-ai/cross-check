@@ -29,7 +29,7 @@ echo 'export OPENROUTER_API_KEY="sk-or-v1-xxxxxx"' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-(Optional: also `GOOGLE_API_KEY` for Gemini Flash and `GROQ_API_KEY` for Llama, used by the free tier.)
+(Optional: `GOOGLE_API_KEY` enables a Gemini Flash fallback for claim extraction when `--review` is used with a tier other than `premium`/`full`.)
 
 ## Use it
 
@@ -57,15 +57,22 @@ cross-check --help
 
 | Tier | Models | Approx cost / run | When to use |
 |---|---|---|---|
-| `free` | 3-model OpenRouter free panel (Nemotron 3 Super 120B + GPT-OSS 120B + GLM 4.5 Air) | $0 | Quick sanity check; personal-use work |
-| `premium` (default) | Gemini 3.1 Pro + GPT-5.5 + Claude Opus 4.7 | ~$0.15 | Routine cross-check work |
-| `full` | **5-model board panel** | ~$0.30-0.50 | Critical decisions, manuscript reviews, research-pipeline panels |
+| `premium` (default) | GPT-6.2 Astra (high) + Gemini 4 Neon + Claude Fable 5.2 | ~$0.15-0.25 | Routine cross-checking. The cheapest panel |
+| `full` | 8 models across 7 labs | ~$0.30-0.50 | Critical decisions, manuscript reviews, thorough document review |
+| `code` | 5 models across 5 labs | ~$0.25-0.40 | Code review and scientific/technical review |
+| `code5` | deprecated alias for `code` | same as `code` | Legacy callers only |
+| `solo` | GPT-6.2 Sol only | cheapest per call | A single reviewer independent of a Claude-based author |
 
-The full panel: Gemini 3.1 Pro, GPT-5.5, Claude Opus 4.7, Qwen 3.7 Max, and Sonar Deep Research. The board was trimmed from 9 → 5 models on 2026-05-20 after OpenRouter's per-minute rate limit started 429'ing the 4th-5th models in a parallel race regardless of which models were chosen. The 5-model panel is the honest panel — every slot reliably responds.
+**The `full` panel:** GPT-6.2 Astra (high), Qwen4 Max, Sonar Deep Research, GLM 5.3, Claude Opus 5.5, Claude Fable 5.2, Kimi K3.1 Pro, Gemini 4 Neon. Two of the eight are Anthropic models, so it spans 7 labs rather than 8 — worth knowing if you are using it to review work an Anthropic model wrote. Sonar Deep Research often answers with a literature essay and no `VERDICT:` line; it is counted as "did not answer" rather than quietly dropped, so this tier frequently has an effective n of 7.
 
-**2026-05-26 panel swap:** o3-pro out, Opus 4.7 in. Two independent audits documented o3-pro's Mode-B citation laundering (real PMIDs resolving to unrelated papers); an 18-model benchmark scored Opus 4.7 at 23/30 vs o3-pro at 19/30 for less than half the cost.
+**The `code` panel:** Kimi K3.1 Pro, GPT-6.2 Astra (high), Qwen4 Max, GLM 5.3, Claude Fable 5.2. Pass your own `--system-prompt-file` — the built-in adversarial prompt is written for veterinary pharmacology and is a poor fit for code.
 
-The `free` panel was consolidated from two near-identical free tiers on 2026-05-25 — same effective behavior, simpler API.
+**Independence matters.** A reviewer from the same model family as the author tends to share its blind spots and re-confirm its reasoning. `solo` is the only all-OpenAI tier, which is why it is the one to reach for when reviewing output an Anthropic model produced. `full`, `code` and `premium` all include at least one Anthropic model.
+
+**Removed in November 2026:** the `free` tier (its OpenRouter `:free` models were delisted upstream, leaving the panel running on a single model) and the `mega` tier (a 15-model strategic panel that was not adding verdicts over `full` in practice). There is no zero-cost tier; `premium` is the floor for a panel.
+
+**A caution on citations.** Several frontier models, across labs, will cite a real PMID that resolves to an unrelated paper. Treat any PMID a panel gives you as unverified until you check it.
+
 
 ## Update to the latest version
 

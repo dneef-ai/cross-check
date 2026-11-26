@@ -18,19 +18,19 @@ Open `~/.claude/CLAUDE.md` (create it if it doesn't exist) and paste this in:
 ````markdown
 ## Multi-model AI Panel Review (`cross-check`)
 
-When I ask for "a panel review", "cross-model review", "9-model review", "adversarial review", "second opinion from multiple AIs", "stress-test this claim", or anything similar, you have a tool installed for exactly this: **`cross-check`**, a globally-installed CLI (via pipx) that sends a claim or document to 9 frontier AI models in parallel and returns their independent verdicts.
+When I ask for "a panel review", "cross-model review", "multi-model review", "adversarial review", "second opinion from multiple AIs", "stress-test this claim", or anything similar, you have a tool installed for exactly this: **`cross-check`**, a globally-installed CLI (via pipx) that sends a claim or document to 9 frontier AI models in parallel and returns their independent verdicts.
 
 ```bash
 cross-check --help                                          # see all options
-cross-check "single claim" --tier full                      # 9-model panel on one claim
+cross-check "single claim" --tier full                      # 8-model panel on one claim
 cross-check --adversarial document.md --tier full           # full adversarial review of a document
 cross-check --adversarial doc.md --tier full --output review.md   # save review to file
 cross-check --review doc.md --tier premium                  # extract claims, verify each
 ```
 
-**Tiers:** `free` (~$0) / `standard` (~$0.05) / `premium` (~$0.15) / `full` (~$0.40-0.60, 9 frontier models). For real review work, default to `--tier full`. For a quick sanity check, `--tier free` is genuinely free.
+**Tiers:** `premium` (~$0.15-0.25, 3 models, the default) / `full` (~$0.30-0.50, 8 models across 7 labs) / `code` (~$0.25-0.40, 5 models, for code and technical review) / `solo` (one GPT-6.2 Sol reviewer, the only all-OpenAI tier). The `free` and `mega` tiers were removed in November 2026. For real review work, default to `--tier full`.
 
-**The full 9-model panel:** Gemini 3.1 Pro, GPT-5.5, o3-pro, Grok 4.20 Multi-Agent, DeepSeek V4 Pro, Kimi K2.6, Qwen 3.6 Max, Claude Opus 4.6, Sonar Deep Research.
+**The full 8-model panel:** GPT-6.2 Astra (high reasoning effort), Qwen4 Max, Sonar Deep Research, GLM 5.3, Claude Opus 5.5, Claude Fable 5.2, Kimi K3.1 Pro, Gemini 4 Neon — 8 models across 7 labs. Note that two are Anthropic models, so if you are using this to review Claude-authored work, prefer `--tier solo` (GPT-6.2 Sol), which is the only all-OpenAI tier and therefore genuinely independent.
 
 **When to use it proactively:** if I'm writing a manuscript, drafting a grant, evaluating a literature claim, choosing between approaches, or making any decision where being wrong is expensive — offer to run a panel review before I commit. A `--tier full` run takes 30-90 seconds and costs <$1.
 
